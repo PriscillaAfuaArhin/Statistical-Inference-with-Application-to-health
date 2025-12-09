@@ -1,0 +1,586 @@
+---
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+# Set global knitr options
+knitr::opts_chunk$set(
+  echo = TRUE,          # Show code chunks
+  warning = FALSE,      # Don't show warnings
+  message = FALSE,      # Don't show messages
+  fig.width = 10,       # Set default figure width
+  fig.height = 6        # Set default figure height
+)
+```
+
+```{r}
+install.packages ("survival" )
+data(kidney)
+```
+
+
+```{r}
+
+library(dplyr)
+library(car)
+library ( survival )
+library ( ggplot2 )
+library(tidyr)
+head (kidney)
+?kidney
+
+```
+
+```{r}
+str(kidney$sex)
+anyNA(kidney$age)
+```
+## 3.Descriptive Statistics
+**Frequency tables For `disease`**
+```{r}
+disease_count <- table(kidney$disease)
+disease_props <- prop.table(disease_count) * 100
+
+# combining the two tables 
+disease_freqtab <- data.frame(
+  Count = disease_count,
+  Proportion_Percent = disease_props
+)
+
+disease_freqtab
+```
+**Description**
+The table shows the frequency distribution of four disease categories(`other`,`GN`,`AN`,`PKD`) observed in a sample of 76 patients(by summing the counts).  
+
+Largest Category: The **`Other`** disease category is the most common with 26 cases or approximately $34.21\%$of the total sample.  
+Second Largest: The **`AN`** category, representing 24 cases or approximately $31.58\%$ with a proportion closer to category `other`.  
+The category **`GN`** follows as the third category with 18 cases.  
+Smallest Category: The **`PKD`** category is the least frequent, with only 8 cases or about $10.53\%$ of the sample.
+
+**Conclusion**  
+We observe that `other` and `AN` category dominates since their counts is almost a third of all observed cases.
+
+**frequency tables for `sex`**
+```{r}
+sex_count <- table(kidney$sex)
+sex_props <- prop.table(sex_count) * 100
+
+# Combine the two tables
+sex_freqtab <- data.frame(
+   Count = sex_count,
+   Proportion_Percent = sex_props
+)
+sex_freqtab
+```
+**Description**
+This variable also covers a total of 76 observations with:  
+Females holding the majority of the sample, with 56 patients representing approximately $73.68\%$ of the total.  
+Males account for the smaller group, with 20 patients representing approximately $26.32\%$ of the total.
+#### Bar chart representing the relationship between `disease` and `sex
+```{r}
+# converting our categorical variables into factor
+# for disease
+kidney$disease <- factor(kidney$disease)
+
+# for sex
+kidney$sex <- factor(kidney$sex,
+                        levels = c(1,2),
+                        labels = c("male","female"))
+
+
+str(kidney$disease)
+str(kidney$sex)
+
+
+
+```
+```{r}
+bar_chart <- ggplot(kidney, aes(x = disease, fill = sex)) +
+    geom_bar(position = "dodge",alpha = 0.7, color = "red") +
+    labs(
+        title = "Relationship between Disease Type and Sex",
+        x = "Disease Type",
+        y = "Count",
+        fill = "Gender"
+    ) +
+  theme_minimal()
+
+# Display the chart
+bar_chart
+```
+**Interpretation**
+
+The blue bars which represent females are significantly taller than the red bars representing males in three out of four disease categories.
+
+Gender is Associated with Disease Type  except for `PKD` whose counts are equal for both male and female.
+Females constitute the larger patient group across all disease types except for `PKD`. 
+The `AN` category has the largest number of females to male (20 vs 4).  
+The equal distribution of male and female patients in the `PKD` category suggests that gender may not be a significant factor for the prevalence of this specific disease in this sample, unlike the three others disease types.
+
+### Numerical Variables
+
+**Summary of `age`**
+```{r}
+kidney %>%
+  summarise(
+    across(
+      c(age, time),
+      list(
+        mean = mean,
+        sd = sd,
+        median = median,
+        IQR = IQR,
+        min = min,
+        max = max,
+        # confidence interval
+        CI_lower = ~ mean(.x) - 1.96 * sd(.x) / sqrt(length(.x)),
+        CI_upper = ~ mean(.x) + 1.96 * sd(.x) / sqrt(length(.x))
+      ),
+      .names = "{.fn}_{.col}"
+    )
+  )
+```
+**Description for `age`**
+
+The average age in the dataset is about 43.7 years.  
+The Mean of 43.7 years and Median of 45.5 years are very close, which suggests the data is not heavily skewed and hence seems to be reasonably symmetrically distributed around the center, but with a slight leaning towards older ages.  
+
+Spread: The Standard Deviation is 14.7 years meaning on average individual ages deviate from the mean by about 14.7 years. The IQR of 20.1 years tells us that the middle $50\%$ of the ages fall within that range.  
+
+Range: Ages range from a Minimum of 10 years to a Maximum of 91 years. This shows a very wide range of ages.
+
+**Description for `time`**
+Mean (101.63)is the average of all the time observations
+The midpoint of the data (median = 39.5) $50\%$ of the observations are below 39.5, and $50\%$ are above it.
+The Mean (101.63) is significantly higher than the Median (39.5). This difference is the strongest indicator of a positive skew in the data. The majority of the observations are clustered towards the lower end, while a few very large values pull the mean upwards we are likely to have (right skew).
+The SD (130.91) is greater than the mean (101.63) implies that there is  a very high level of variability and also indicates a signal of strong skewness.  
+A large IQR(133.75) indicates a wide spread in the central half of the data.  
+Thus,the difference between the maximum (562) and the median (39.5) is huge, reinforcing the idea that the data is dominated by shorter times but heavily influenced by a small number of very long times. 
+
+#### Confidence Interval
+
+$95\%$ CI for Mean Age is (40.38331, 47.01142) years, this implies that we are $95\%$ that the interval will likely contain the true average age of the entire population. Since the range is relatively narrow (about 6.63 years wide), the sample mean (43.69737) is a relatively precise estimate of the population mean age.
+
+95% CI for Mean Time is (72.1985, 131.0647), we are $95\% $ confident that the true average time of the entire population falls between 72.20 and 131.06 units.  
+
+The mean time  interval is much wider (about 58.86 wide) than the age interval. This wide range suggests that the sample mean for time (101.63 units) is a less precise estimate of the population mean time,due to the very high variability i.e standard deviation in the time data.
+
+
+### Central Limit Theorem
+
+The Central limit theorem guideline suggests that for $n\geq 30$, the samples will approach or will be normally distributed.
+The size of our data set $ n = 76$ $\geq$ 30, hence CIT is reasonable generaally.  
+
+**Considering the two variables `age` and `time`:
+The CLT assumption appears reasonable for the age variable due to the symmetry and large sample size.
+The CLT assumption is questionable for the time variable due to the extreme positive skewness,even though the sample size (n=76) meets the general guideline.
+
+**Histogram for Age**
+```{r}
+ggplot(kidney, aes(x = age)) +
+  geom_histogram(binwidth = 5,alpha = 0.7, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Age", x = "Age", y = "Frequency")
+
+```
+The histogram contains a bimodal tendency, instead of having a single peak (unimodal), the distribution appears to have at least two major clusters or peaks.
+The bars around the bars around 45,50 and 55 years are the tallest meaning they have the highest frequencies.  
+A smaller  but noticeable cluster occurs in the 30s.
+There is also a smaller grouping in the early teens around 10-15 years old.
+
+Range: Ages in the sample appear to span from approximately 10 years on the low end to around 70 years on the high end there's,a small bar near 70. This matches the provided range of 10 to 91,although the bars above 70 are very short, confirming ages above 70 are rare.
+
+
+The distribution is fairly symmetric around the main peak, considering that the mean and median were very close.
+
+The histogram suggests that sample is primarily composed of middle-aged individuals (40s and 50s), with smaller groups of younger patients and a few elderly patients.
+
+**Histogram for time**
+```{r}
+ggplot(kidney, aes(x = time)) +
+  geom_histogram(binwidth = 15,alpha = 0.7, fill = "lightgreen", color = "black") +
+  labs(title = "Histogram of Time", x = "Time", y = "Frequency")
+
+```
+The majority of the observations are heavily clustered at the far left of the graph. The tallest bar the mode is in this range and is very close to zero.  
+The frequency quickly drops off and the histogram has a long gradual tail that extends far to the right towards the maximum values.  
+The distribution is spread across a large range from near 0 up to 562. The large number of bins with zero in the middle and right sections highlights the extreme variability and rarity of these longer time observations.
+
+
+**The box plot between Disease and age**
+```{r}
+ggplot(kidney, aes(x = disease, y = time, fill = disease)) + 
+  geom_boxplot() + 
+  labs(
+    title = "Time Distribution by Disease Status", 
+    x = "Disease type",
+    y = "Time (Units)",
+    fill = "Disease"
+  ) +
+  theme_minimal()
+```
+**Description**
+
+-`GN` median time is the lowest among all groups.
+
+## 4.Chi-Squared Test of Association
+ Research question: Is there a statistically significant association between the type of kidney disease a patient has and their biological sex?
+ We use the Chi-Squared Test of Independence to determine if there's a statistically significant association between the type of kidney disease (disease) and the patient's sex (sex).
+
+
+```{r}
+# Use only first observation per patient to ensure independence
+kidney_first <- kidney %>%
+  group_by(id) %>%
+  slice(1) %>%
+  ungroup()
+
+head(kidney_first)
+```
+
+```{r}
+# Create a contingency table
+cat("Contingency Table (Counts):\n")
+(contingency_table <- table(kidney_first$disease, kidney_first$sex))
+
+cat("\nRow Percentages (% by Disease):\n")
+prop.table(contingency_table, margin = 1) * 100
+
+cat("\nColumn Percentages (% by Sex):\n") 
+prop.table(contingency_table, margin = 2) * 100
+```
+
+
+```{r}
+## Chi-Squared Test of Independence
+
+# Perform Chi-Squared Test
+chi_sq_test <- chisq.test(contingency_table)
+chi_sq_test
+
+# Check expected counts (assumption check)
+chi_sq_test$expected
+
+```
+Interpretation: The association between the type of kidney disease (disease) and the
+patient's sex (sex) was examined using a chi-square test of
+independence.
+The p-value of $0.566$ is greater than $\alpha = 0.05$, indicating no
+statistically significant association between the type of kidney
+disease and sex in the dataset.
+
+
+## 5.Equality of Variance and ANOVA
+
+#Choose the variables to work with
+```{r}
+kidney_data1 <- kidney %>% 
+  select(age, sex, time, disease)
+
+# Inspect the first few rows
+head(kidney_data1)
+
+
+```
+#Checking the datatype of the variables
+```{r}
+
+str(kidney_data1)
+kidney_data1%>%group_by()
+summary(kidney_data1$age)
+summary(kidney_data1$time)
+table(kidney_data1$sex)
+table(kidney_data1$disease)
+
+```
+#Checking the numeric variables by each group of disease
+```{r}
+
+# Structure
+kidney_data1 %>% str()
+
+# Summary of all variables
+kidney_data1 %>% summary()
+
+# Numeric summaries by disease
+kidney_data1 %>%
+  group_by(disease) %>%
+  summarise(
+    mean_age  = mean(age, na.rm = TRUE),
+    sd_age    = sd(age, na.rm = TRUE),
+    mean_time = mean(time, na.rm = TRUE),
+    n         = n()
+  )
+
+# Categorical distributions
+kidney_data1 %>% count(sex)
+kidney_data1 %>% count(disease)
+
+```
+
+Ensure categorical variables are factors
+```{r}
+#kidney_data1$sex <- as.factor(kidney_data1$sex)
+#kidney_data1$disease <- as.factor(kidney_data1$disease)
+str(kidney_data1$sex)
+str(kidney_data1$disease)
+```
+
+To check the equality of varaince,we use the Levenes test on the numerical variable against sex and disease
+
+```{r}
+# Levene's test for age by disease
+levene_age <- leveneTest(age ~ disease, data = kidney_data1)   # default center = median
+levene_age
+
+
+# Levene's test for time by disease
+levene_time <- leveneTest(time ~ disease, data = kidney_data1)
+levene_time
+
+```
+Extracting the P-values for comparison
+```{r}
+# extract p-value
+levene_age_p <- levene_age[1,"Pr(>F)"]
+levene_age_p
+
+levene_time_p <- levene_time[1,"Pr(>F)"]
+levene_time_p
+```
+Comparing the P-value to alpha and make conclusions
+```{r}
+# Compare to alpha = 0.05
+if ( levene_age_p< 0.05) {
+  cat("Reject H0: Variances are significantly different (p =", levene_age_p, ")\n")
+} else {
+  cat("Fail to reject H0: No evidence of different variances (p =", levene_age_p, ")\n")
+}
+```
+```{r}
+# Compare to alpha = 0.05
+if ( levene_time_p< 0.05) {
+  cat("Reject H0: Variances are significantly different (p =",levene_time_p , ")\n")
+} else {
+  cat("Fail to reject H0: No evidence of different variances (p =", levene_time_p, ")\n")
+}
+```
+
+
+#Anova to test if the mean for the age variable  are the same across the diease group
+```{r}
+anova_age <- aov(age ~ disease, data = kidney_data1)
+summary(anova_age)
+```
+#Plot to support the ANOVA interpretation
+```{r}
+my_plot <-boxplot(age ~ disease,
+        data = kidney,
+        main = "Age by Disease Group",
+        xlab = "Disease Group",
+        ylab = "Age")
+```
+#Interpretation:
+A one-way ANOVA showed a statistically significant difference in mean age across the four disease groups (F(3, 72) = 14.55, p < 0.001), indicating that patients’ ages vary significantly between disease categories, with at least one group having a different mean age from the others
+
+#Anova to test if the mean for the time variable  are the same across the diease group
+```{r}
+anova_time <- aov(time ~ disease, data = kidney_data1)
+summary(anova_time)
+```
+```{r}
+boxplot(time ~ disease,
+        data = kidney,
+        main = "Time by Disease Group",
+        xlab = "Disease Group",
+        ylab = "Time")
+```
+## Interpretation:
+A one-way ANOVA was conducted to examine whether mean survival time differed across disease groups. The results showed no statistically significant difference between the groups, with an F-statistic of 1.05 and a p-value of 0.377. Since the p-value exceeds the 0.05 significance level, we fail to reject the null hypothesis. This indicates that mean survival time does not differ across the disease categories, and any observed differences are likely due to random variation rather than true differences between groups.
+
+## Discussing Assumptions
+## 1.Independence
+
+The dataset is not indepenedent because the age variable is recorded twice or has more than one measurements.
+
+## 2.Equality of variance
+We use the levene's test to show the equality of the variance
+```{r}
+# Levene's test for age by disease
+levene_age <- leveneTest(age ~ disease, data = kidney_data1)   # default center = median
+levene_age
+
+
+# Levene's test for time by disease
+levene_time <- leveneTest(time ~ disease, data = kidney_data1)
+levene_time
+```
+The assumption for equality of variance is violated since the p-values are  > 0.05.Hence Failing to reject that the null hypothesis .That is there's no statistical significant.
+
+
+## 3.Normality of dataset
+```{r}
+kidney_data1 %>%
+  select(disease, age, time) %>%
+  pivot_longer(
+    cols = c(age, time),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(
+    aes(y = after_stat(density)),
+    bins = 30,
+    fill = "lightblue",
+    color = "white",
+    alpha = 0.7
+  ) +
+  geom_density(
+    color = "red",
+    linewidth = 1
+  ) +
+  facet_grid(variable ~ disease, scales = "free") +
+  theme_minimal(base_size = 12) +
+  labs(
+    title = "Histogram and Density Plots for Normality Assessment",
+    x = "Value",
+    y = "Density"
+  )
+
+
+
+```
+```{r}
+numeric_vars <- kidney_data1 %>%
+  select(age, time) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+
+ggplot(numeric_vars, aes(sample = value)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_bw() +
+  labs(title = "Q–Q Plots for Age and Time")
+
+```
+```{r}
+# Barplots
+kidney_data1 %>%
+  select(sex, disease) %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  ggplot(aes(x = value, fill = value)) +
+  geom_bar() +
+  facet_wrap(~ variable, scales = "free") +
+  theme_bw() +
+  labs(title = "Distribution of Categorical Variables", x = "", y = "Count") +
+  theme(legend.position = "none")
+
+```
+
+From the histogram checks for normality of age,time against different disease group.It can be seen that most of the groups are positively skewed .And from the Q-Q plot,we see that the variables are not normally distributed, as the data points deviate significantly from the reference line.
+The categorical variables are not evenly distributed; some categories have more observations than others.Hence it voilates the normality assumption under ANOVA
+
+
+## 6.Create a scatterplot of the two numerical variables
+```{r}
+kidney %>%
+  ggplot(aes(x = age, y = time)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE,color = "red") +
+  labs(title = "Time vs Age",x = "Age (years)",y = "Time") +
+theme_minimal()
+```
+
+# Report and interpret the correlation coefficient.
+```{r}
+
+kidney %>%
+summarise(
+Pearson_r = cor.test(age, time, method = "pearson")$estimate
+,
+p_value = cor.test(age, time, method = "pearson")$p.value
+)
+
+```
+–0.119 is very close to 0 meaning there is almost no relationship between age and time
+until reccurence.
+A p value is greater than 0.05, so at 5 percent of significance level, we fail to reject the
+null hypothesis and we can conclude that there’s no correlation confirming our intuition
+from the plot above
+
+# Fit a simple linear regression model
+```{r}
+
+# Fit a linear regression model
+lmodel <- lm(time ~ age, data = kidney)
+# Model summary (coefficients, R-squared, F-statistic)
+summary(lmodel)
+```
+Interpretations:
+Coefficients: The slope (age = –1.059) means each extra year of age reduces time by
+about 1 day.
+R²: Only 1.4% of the variation in time is explained by age, so the model has almost no
+explanatory power.
+Significance: Since p = 0.3047 >> 0.05, we can conclude that with 5 percent chance to
+mislead, the age does not meaningfully predict time until recurrence
+
+```{r}
+# 95% confidence intervals for coefficients
+confint(lmodel)
+```
+H₀: The slope = 0, meaning age has no effect on time (age does NOT predict or explain
+time).
+The 95% confidence interval for age (–3.10 to 0.98) includes zero, meaning that we
+cannot reject H₀. Conclusion we can say that the age has no effect on time until
+recurrence.
+
+
+```{r}
+ggplot(data.frame(fitted = fitted(lmodel), resid = resid(lmodel)),
+aes(x = fitted, y = resid)) +
+geom_point() +
+geom_hline(yintercept = 0, color = "red") +
+labs(x = "Fitted␣values",
+y = "Residuals",
+title = "Residuals␣vs␣Fitted␣Values") +
+theme_bw()
+```
+Interpretation: The residuals are widely scattered with no clear pattern, the spread increases for some fitted values, showing non-
+constant variance (heteroscedasticity). This is a clear violation of the Linear regression assumption stating that
+there should be homoscedasticity.
+
+```{r}
+# Check normality of residuals
+res <- resid(lmodel)
+# Histogram of residuals
+ggplot(as_tibble(res), aes(x = value)) +
+geom_histogram(bins = 30, fill = "lightblue", color = "black") +
+labs(title = "Histogram of Residuals",
+x = "Residuals",
+y = "Count") +
+theme_bw()
+```
+
+The histogram is not symmetric and shows a long right tail. Nothing to do with a bell
+shaped centered around the mean. This stipulates that the residuals are not normally
+distributed.
+
+```{r}
+ggplot(as_tibble(res), aes(sample = value)) +
+stat_qq() +
+stat_qq_line(color = "red") +
+labs(title = "Normal Q–Q Plot of Residuals") +
+theme_bw()
+```
+We see that the residuals are not normally distributed, as the data points deviate significantly from the red
+reference line, particularly in both the lower and upper tails.
+```{r}
+shapiro.test(res)
+```
+
+Interpretation: Null hypothesis states that the data is normally distributed
+p value <<< 0.05, so at 5 percent of significance level, he reject the null hypothesis and
+conclude that the data is not normally distributed. This confirms the intuitions we had
+from the histogram and Q-Q plots
+# In conclusion, all the assumptions of a linear regression model have been violated.
